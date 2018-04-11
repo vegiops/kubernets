@@ -1,0 +1,35 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.1.0 (36652f6)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: ofbiz
+  name: ofbiz
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: ofbiz
+    spec:
+      containers:
+      - env:
+        - name: DEFAULT_HOST
+        - name: LETSENCRYPT_EMAIL
+        - name: LETSENCRYPT_HOST
+        - name: OFBIZ_DB
+        - name: OFBIZ_OLAP_DB
+        - name: OFBIZ_TENANT_DB
+        - name: POSTGRES_PASSWORD
+        - name: POSTGRES_USER
+        - name: VIRTUAL_HOST
+        image: ofbiz
+        name: ofbiz
+        resources: {}
+      restartPolicy: Always
+status: {}

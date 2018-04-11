@@ -1,0 +1,126 @@
+#  File: ./docker-compose.yml
+#  Summary: An implementation of Apache OFBiz for early-stage venture-backed startups.
+#  License: MIT License
+#  Company: Blockfreight, Inc.
+#  Author: Julian Smith <julian.smith@blockfreight.com>, Jerram Watters <jerram.watters@blockfreight.com>, Nick Doulgeridis <nickdoulgeridis@gmail.com>
+#  Site: https://blockfreight.com
+#  Support: <support@blockfreight.com>
+
+#  Blockfreight, Inc. - OFBiz (ERP) Docker Image
+
+#  Copyright © 2018 Blockfreight, Inc. All Rights Reserved.
+
+#  Permission is hereby granted, free of charge, to any person obtaining
+#  a copy of this software and associated documentation files (the "Software"),
+#  to deal in the Software without restriction, including without limitation
+#  the rights to use, copy, modify, merge, publish, distribute, sublicense,
+#  and/or sell copies of the Software, and to permit persons to whom the
+#  Software is furnished to do so, subject to the following conditions:
+
+#  The above copyright notice and this permission notice shall be
+#  included in all copies or substantial portions of the Software.
+
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+#  OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+#  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+#  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+#  =================================================================================================================================================
+#  =================================================================================================================================================
+
+#  BBBBBBBBBBBb     lll                                kkk             ffff                         iii                  hhh            ttt
+#  BBBB``````BBBB   lll                                kkk            fff                           ```                  hhh            ttt
+#  BBBB      BBBB   lll      oooooo        ccccccc     kkk    kkkk  fffffff  rrr  rrr    eeeee      iii     gggggg ggg   hhh  hhhhh   tttttttt
+#  BBBBBBBBBBBB     lll    ooo    oooo    ccc    ccc   kkk   kkk    fffffff  rrrrrrrr eee    eeee   iii   gggg   ggggg   hhhh   hhhh  tttttttt
+#  BBBBBBBBBBBBBB   lll   ooo      ooo   ccc           kkkkkkk        fff    rrrr    eeeeeeeeeeeee  iii  gggg      ggg   hhh     hhh    ttt
+#  BBBB       BBB   lll   ooo      ooo   ccc           kkkk kkkk      fff    rrr     eeeeeeeeeeeee  iii   ggg      ggg   hhh     hhh    ttt
+#  BBBB      BBBB   lll   oooo    oooo   cccc    ccc   kkk   kkkk     fff    rrr      eee      eee  iii    ggg    gggg   hhh     hhh    tttt    ....
+#  BBBBBBBBBBBBB    lll     oooooooo       ccccccc     kkk     kkkk   fff    rrr       eeeeeeeee    iii     gggggg ggg   hhh     hhh     ttttt  ....
+#                                                                                                         ggg      ggg
+#    Blockfreight™ | The blockchain of global freight.                                                      ggggggggg
+
+#  =================================================================================================================================================
+#  =================================================================================================================================================
+
+# https://docs.docker.com/compose/yml/
+# Each service defined in docker-compose.yml must specify exactly one of
+# image or build. Other keys are optional, and are analogous to their
+# docker run command-line counterparts.
+#
+# As with docker run, options specified in the Dockerfile (e.g., CMD,
+# EXPOSE, VOLUME, ENV) are respected by default - we don't need to
+# specify them again in docker-compose.yml.
+#
+
+version: '2'
+services:
+
+    # Configure Nginx
+    nginx_proxy:
+        container_name: nginx_proxy
+        image: jwilder/nginx-proxy
+        volumes:
+           - /etc/nginx/vhost.d
+           - /usr/share/nginx/html
+           - /var/run/docker.sock:/tmp/docker.sock:ro
+           - ./certs:/etc/nginx/certs:ro
+        ports:
+           - 80:80
+           - 443:443
+        labels:
+           com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy: "true"
+        restart: always
+
+    nginx_letsencrypt_companion:
+        container_name: nginx_letsencrypt_companion
+        image: jrcs/letsencrypt-nginx-proxy-companion
+        volumes:
+            - ./certs:/etc/nginx/certs:rw
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+        volumes_from:
+            - nginx_proxy
+        depends_on:
+            - nginx_proxy
+        restart: always
+
+    # Configure Ofbiz
+    ofbiz:
+        container_name: ofbiz
+        build: ./ofbiz
+        external_links:
+           - postgresql:postgresql
+        depends_on:
+           - postgresql
+           - nginx_letsencrypt_companion
+        environment:
+          DEFAULT_HOST: ${ENV_DEFUALT_HOST}
+          VIRTUAL_HOST: ${ENV_VIRTUAL_HOST}
+          LETSENCRYPT_HOST: ${ENV_LETSENCRYPT_HOST}
+          LETSENCRYPT_EMAIL: ${ENV_LETSENCRYPT_EMAIL}
+          POSTGRES_USER: ${ENV_POSTGRES_USER}
+          POSTGRES_PASSWORD: ${ENV_POSTGRES_PASSWORD}
+          OFBIZ_DB: ${ENV_OFBIZ_DB}
+          OFBIZ_OLAP_DB: ${ENV_OFBIZ_OLAP_DB}
+          OFBIZ_TENANT_DB: ${ENV_OFBIZ_TENANT_DB}
+        restart: always
+
+    # Configure PostgreSQL
+    postgresql:
+        container_name: postgresql
+        build: postgres
+        environment:
+            POSTGRES_USER: ${ENV_POSTGRES_USER}
+            POSTGRES_PASSWORD: ${ENV_POSTGRES_PASSWORD}
+            OFBIZ_DB: ${ENV_OFBIZ_DB}
+            OFBIZ_OLAP_DB: ${ENV_OFBIZ_OLAP_DB}
+            OFBIZ_TENANT_DB: ${ENV_OFBIZ_TENANT_DB}
+        ports:
+            - 5432:5432
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+        restart: always
+
+volumes:
+    pgdata:
